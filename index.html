@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Aurum Store</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height:100vh; padding:20px; }
+    .container { max-width:1200px; margin:0 auto; background:white; border-radius:20px; padding:40px; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+    h1 { text-align:center; color:#333; margin-bottom:10px; font-size:2.5em; }
+    .subtitle { text-align:center; color:#666; margin-bottom:40px; font-size:1.1em; }
+    .user-id-display { background:#f0f0f0; padding:10px 20px; border-radius:8px; text-align:center; margin-bottom:30px; font-size:0.9em; color:#666; }
+    .products-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:30px; margin-bottom:40px; }
+    .product-card { background:white; border:2px solid #e0e0e0; border-radius:15px; padding:25px; transition:all 0.3s ease; cursor:pointer; }
+    .product-card:hover { transform:translateY(-5px); box-shadow:0 10px 30px rgba(0,0,0,0.15); border-color:#667eea; }
+    .product-image { width:100%; height:200px; background:#f5f5f5; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:4em; margin-bottom:20px; overflow:hidden; position:relative; padding:10px; }
+    .product-image img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
+    .product-image .emoji-fallback { font-size:4em; }
+    .product-name { font-size:1.4em; font-weight:bold; color:#333; margin-bottom:10px; }
+    .product-description { color:#666; margin-bottom:15px; line-height:1.5; }
+    .product-price { font-size:1.5em; color:#667eea; font-weight:bold; margin-bottom:15px; }
+    .btn-add-cart { width:100%; padding:12px; background:#667eea; color:white; border:none; border-radius:8px; font-size:1em; font-weight:bold; cursor:pointer; transition:all 0.3s ease; }
+    .btn-add-cart:hover { background:#5568d3; transform:scale(1.02); }
+    .btn-add-cart.added { background:#48bb78; }
+    .cart-summary { background:#f8f9fa; padding:25px; border-radius:15px; margin-bottom:30px; }
+    .cart-summary h2 { color:#333; margin-bottom:15px; }
+    .cart-item { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #e0e0e0; }
+    .cart-total { font-size:1.5em; font-weight:bold; color:#667eea; margin-top:15px; text-align:right; }
+    .empty-cart { text-align:center; color:#999; padding:20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>The Aurum Store</h1>
+    <p class="subtitle"> </p>
+    <div class="user-id-display" id="userIdDisplay"> Loading user ID...</div>
+ 
+    <div class="cart-summary">
+      <h2>🛒 Cart</h2>
+      <div id="cartItems" class="empty-cart">Your cart is empty</div>
+      <div class="cart-total" id="cartTotal"></div>
+    </div>
+ 
+    <div class="products-grid" id="productsGrid"></div>
+  </div>
+ 
+  <script>
+    const products = [
+      { id:1, name: 'Tre Marie Nougal', price:1.5, emoji:'🍪', description:'100% Natural Ingredients', image:'https://m.media-amazon.com/images/I/61ZxIMuE9UL._AC_SL1500_.jpg'},
+      { id:2, name: 'Tre Marie Hazelnut', price:1.5, emoji:'🍪', description: 'https://tremarie.galbusera.it/wp-content/uploads/2021/09/Wafer_3MARIE_Nocciola-175g_071122.png'},
+      { id:3, name: 'Tre Marie Migdal', price:1.5, emoji:'🍪', description: '100% Natural Ingredients', image:'https://tremarie.galbusera.it/wp-content/uploads/2021/09/Wafer_3MARIE_Mandorlato-140g_071122.png'},
+      { id:4, name: 'Tre Marie Avel', price:1.5, emoji:'🍪', description: 'No Chemical Additives', image:'https://m.media-amazon.com/images/I/61pMd6pzFEL._AC_SL1500_.jpg '},
+      { id:5, name: 'Tre Marie Migdal', price:3.5, emoji:'🍪', description: '100% Natural Ingredients’, image:'https://m.media-amazon.com/images/I/61ThXucaFCL._AC_SL1146_.jpg'},
+      { id:6, name: 'Tre Marie Avel', price:1.5, emoji:'🍪', description: 'No Chemical Additives', image:'https://tremarie.galbusera.it/wp-content/uploads/2021/09/Wafer_3MARIE_Nocciolato-140g_071122.png'}
+      { id:7, name: 'Tre Marie Hazelnut', price:1.5, emoji:'🍪', description: '100% Natural Ingredients’, image:'https://tremarie.galbusera.it/wp-content/uploads/2021/09/Wafer_3MARIE_Stracciatella-140g_071122.png'},
+      { id:8, name:'Tre Marie Nougal', price:1.5, emoji:'🍪', description: 'No Chemical Additives’, image:' https://www.dolciricorrenze.it/products/wafer-stracciatella-ancora-uno-tre-marie?pr_prod_strat=jac&pr_rec_id=e9872bffe&pr_rec_pid=8625056776528&pr_ref_pid=8625056973136&pr_seq=uniform'}
+    ];
+ 
+    let userId = null;
+    let cart = [];
+    let sessionStart = Date.now();
+    const trackingData = [];
+ 
+    // Link Web App con foglio "Tracking wafer"
+    const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz3kSaKG6a1Vg2Nn2lx20jQSHQLp0Uy9EF5gAZLFrQKp7vSR4WfackGGL5F1P7MaucELA/exec';
+ 
+    function getUserIdFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('uid') || params.get('user_id') || params.get('PROLIFIC_PID') || 'DEMO_' + Date.now();
+    }
+ 
+    function sendToGoogleSheets(event) {
+      fetch(GOOGLE_SHEETS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(event)
+      }).catch(console.error);
+    }
+ 
+    function trackEvent(type, productId=null, productPrice=null) {
+      const timestamp = new Date().toLocaleString('it-IT', { hour12:false });
+      const event = {
+        timestamp,
+        userId,
+        eventType: type,
+        productId,
+        productName: productId ? products.find(p=>p.id===productId).name : null,
+        productPrice,
+        sessionDuration: Math.floor((Date.now()-sessionStart)/1000)
+      };
+      trackingData.push(event);
+      console.log('Tracked:', event);
+      sendToGoogleSheets(event);
+    }
+ 
+    function renderProducts() {
+      const grid = document.getElementById('productsGrid');
+      grid.innerHTML = products.map(p => {
+        const imgHTML = p.image ? `<img src="${p.image}" alt="${p.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div class="emoji-fallback" style="display:none;">${p.emoji}</div>` : `<div class="emoji-fallback">${p.emoji}</div>`;
+        return `
+          <div class="product-card" onclick="viewProduct(${p.id})">
+            <div class="product-image">${imgHTML}</div>
+            <div class="product-name">${p.name}</div>
+            <div class="product-description">${p.description}</div>
+            <div class="product-price">$${p.price.toFixed(2)}</div>
+            <button class="btn-add-cart" onclick="addToCart(event, ${p.id})" id="btn-${p.id}">ADD TO CART</button>
+          </div>`;
+      }).join('');
+    }
+    function viewProduct(id) {
+      trackEvent('product_view', id, products.find(p => p.id === id).price);
+    }
+ 
+    function addToCart(event, id) {
+      event.stopPropagation();
+      const product = products.find(p => p.id === id);
+      const existing = cart.find(i => i.id === id);
+      if(existing) existing.quantity++;
+      else cart.push({...product, quantity:1});
+      trackEvent('add_to_cart', id, product.price);
+      updateCart();
+      const btn = document.getElementById(`btn-${id}`);
+      btn.classList.add('added');
+      btn.textContent = '✓ Added to Cart';
+      setTimeout(() => {
+        btn.classList.remove('added');
+        btn.textContent = 'ADD TO CART';
+      }, 1500);
+    }
+ 
+    function updateCart() {
+      const div = document.getElementById('cartItems');
+      const totalDiv = document.getElementById('cartTotal');
+      if(cart.length === 0){
+        div.innerHTML = '<div class="empty-cart">Your cart is empty</div>';
+        totalDiv.textContent = '';
+        return;
+      }
+      div.innerHTML = cart.map(item =>
+        `<div class="cart-item"><span>${item.name} x${item.quantity}</span><span>$${(item.price*item.quantity).toFixed(2)}</span></div>`
+      ).join('');
+      const total = cart.reduce((sum,i) => sum + i.price*i.quantity, 0);
+      totalDiv.textContent = `Total: $${total.toFixed(2)}`;
+    }
+ 
+    function init() {
+      userId = getUserIdFromURL();
+      document.getElementById('userIdDisplay').textContent = `User ID: ${userId}`;
+      trackEvent('session_start');
+      renderProducts();
+      updateCart();
+    }
+ 
+    window.addEventListener('beforeunload', () => trackEvent('session_end'));
+ 
+    init();
+  </script>
+</body>
+</html>
